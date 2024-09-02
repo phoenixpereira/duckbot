@@ -5,9 +5,6 @@ on:
     branches: 
         - '**'
 
-env:
-  AWS_REGION: ap-southeast-2
-
 jobs:
   lint-format:
     name: Linting Checks
@@ -23,13 +20,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          role-session-name: ${{ secrets.AWS_ROLE_SESSION_NAME }}
-          aws-region: ${{ env.AWS_REGION }}
 
       - name: Set up QEMU for ARM64
         uses: docker/setup-qemu-action@v3
@@ -62,38 +52,3 @@ jobs:
         run: |
           rsync -a --delete /tmp/.buildx-cache-new/ /tmp/.buildx-cache/
 
-      - name: Copy image and compose file to S3
-        run: |
-          aws s3 cp ./duckbot.tar.gz s3://${{ secrets.AWS_S3_BUCKET }}/duckbot/
-          aws s3 cp ./docker-compose.yml s3://${{ secrets.AWS_S3_BUCKET }}/duckbot/
-
-  deploy:
-    needs: build
-    name: Deploy
-    runs-on: ubuntu-latest
-    environment: Production
-    steps:
-      - name: Deploy on EC2
-        env:
-          KEY: ${{ secrets.SSH_EC2_KEY }}
-          HOSTNAME: ${{ secrets.SSH_EC2_HOSTNAME }}
-          USER: ${{ secrets.SSH_EC2_USER }}
-          GUILD_ID: ${{ secrets.GUILD_ID }}
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          SKULLBOARD_CHANNEL_ID: ${{ secrets.SKULLBOARD_CHANNEL_ID }}
-          REQUIRED_REACTIONS: ${{ secrets.REQUIRED_REACTIONS }}
-          TENOR_API_KEY: ${{ secrets.TENOR_API_KEY }}
-        run: |
-          echo "$KEY" > private_key && chmod 600 private_key
-          ssh -v -o StrictHostKeyChecking=no -i private_key ${USER}@${HOSTNAME} '
-            cd ~/duckbot
-            aws s3 cp s3://${{ secrets.AWS_S3_BUCKET }}/duckbot/duckbot.tar.gz .
-            aws s3 cp s3://${{ secrets.AWS_S3_BUCKET }}/duckbot/docker-compose.yml .
-            echo GUILD_ID=${{ secrets.GUILD_ID }} > .env
-            echo BOT_TOKEN=${{ secrets.BOT_TOKEN }} >> .env
-            echo SKULLBOARD_CHANNEL_ID=${{ secrets.SKULLBOARD_CHANNEL_ID }} >> .env
-            echo REQUIRED_REACTIONS=${{ secrets.REQUIRED_REACTIONS }} >> .env
-            echo TENOR_API_KEY=${{ secrets.TENOR_API_KEY }} >> .env
-            docker load -i duckbot.tar.gz
-            docker compose up -d
-          '
