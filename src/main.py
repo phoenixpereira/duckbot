@@ -214,7 +214,7 @@ async def on_message(message: Message):
                 break
 
     # If the user has sent less than SPAM_CHECK_MIN_MSG messages in the channel, check for spam
-    if count < SPAM_CHECK_MIN_MSG:
+    if count >= SPAM_CHECK_MIN_MSG:
         await spam_detection.check_spam(message)
 
     if (

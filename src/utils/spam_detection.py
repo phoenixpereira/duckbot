@@ -72,6 +72,10 @@ def is_spam(input_message, spam_messages, threshold=0.3):
         max_len = max(len(input_message), len(spam_message))
         normalised_distance = distance / max_len
 
+        print(
+            f"Comparing to spam message: '{spam_message}' | Distance: {distance} | Normalised: {normalised_distance}"
+        )
+
         # If the Levenshtein distance is below the threshold, classify as spam
         if normalised_distance < threshold:
             return True
